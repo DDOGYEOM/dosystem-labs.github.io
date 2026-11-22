@@ -175,15 +175,15 @@ select c1_0.post_id, count(c1_0.id) from comment c1_0
 
 | 요청 | 적용 전 | 적용 후 |
 |---|---|---|
-| 댓글 목록(총 14개, 작성자 12명) | 13 | 2 |
+| 댓글 목록(총 14개, 작성자 12명) | 14 | 2 |
 | 게시글 목록 페이지(게시글 10개 작성자 10명) | 13 | 3 | 
 
 같은 댓글 목록을 방법만 바꿔서 쟀습니다.
 
 | 방법 | 쿼리 수 |
 |---|---|
-| 적용 전 (LAZY) | 13 |
-| `FetchType.EAGER`로 변경 | 13 |
+| 적용 전 (LAZY) | 14 |
+| `FetchType.EAGER`로 변경 | 14 |
 | fetch join | 2 |
 | `@EntityGraph` | 2 |
 | `default_batch_fetch_size=100` | 3 |
