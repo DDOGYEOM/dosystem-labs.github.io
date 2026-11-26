@@ -29,7 +29,7 @@ Claude Console은 **조직(Organization) → 워크스페이스(Workspace) → A
 | ----- | ----- |
 | 조직 | 회사 계정. 결제, 멤버 관리, 전체 사용량 한도를 관리 |
 | 워크스페이스 | 조직 안에서 프로젝트·환경별로 나눈 공간. 워크스페이스마다 비용·요청 한도를 따로 걸 수 있음 |
-| API 키 | 워크스페이스에 속함. 사용량과 비용도 키·워크스페이스 단위로 확인 가능 |
+| API 키 | 보통 워크스페이스 단위로 발급함 (워크스페이스에 속하지 않은 키는 요청에 `anthropic-workspace-id` 헤더가 필요). 사용량과 비용도 키·워크스페이스 단위로 확인 가능 |
 
 개발용과 운영용 워크스페이스를 나눠 두면 키 유출이나 비용 폭주가 생겨도 영향 범위를 줄일 수 있음
 
@@ -222,7 +222,7 @@ API 호출이 실패하는 경우는 두 가지로 나뉨
 | 403 | `PermissionDeniedException` | 해당 키로 허용되지 않는 요청 | X |
 | 404 | `NotFoundException` | 모델 ID 오타 등 리소스를 찾을 수 없음 | X |
 | 429 | `RateLimitException` | 요청 한도 초과 | O |
-| 500 이상 | `InternalServerException` | 서버 문제 (529는 일시적 과부하) | O |
+| 500 이상 | `InternalServerException` | 서버 문제. 하위 클래스로 504 `GatewayTimeoutException`, 529(일시적 과부하) `OverloadedException`이 있음 | O |
 | - | `AnthropicIoException` | 네트워크 연결 실패 | O |
 
 에러 메시지 문자열을 비교하지 말고 SDK의 예외 클래스로 구분함.
@@ -245,7 +245,7 @@ try {
 ```
 
 ### 타임아웃과 재시도
-SDK는 429, 5xx, 네트워크 에러, 타임아웃을 **기본 2번 자동 재시도**함 (재시도 사이에 대기 시간을 점점 늘림).
+SDK는 408, 409, 429, 5xx, 네트워크 에러, 타임아웃을 **기본 2번 자동 재시도**함 (대기 시간은 0.5초~8초 사이로 점점 늘리고, 응답에 `retry-after` 헤더가 있으면 그 값을 따름).
 타임아웃 기본값은 **10분**이고, Java SDK에서는 `Duration`으로 지정함
 
 ```java
@@ -279,6 +279,7 @@ HTTP 200으로 응답이 와도 예외가 나지 않을 뿐, 응답이 잘렸거
 | tool_use | 모델이 도구 호출을 요청함 | 도구 실행 후 결과를 보내 대화를 이어감 |
 | pause_turn | 서버 도구 실행 중 일시 정지됨 | 응답을 그대로 다시 보내 이어서 진행 |
 | refusal | 안전 정책에 따라 응답을 거절함 | `stop_details`로 사유 확인 |
+| model_context_window_exceeded | 모델의 컨텍스트 윈도우 한도에 도달해서 멈춤 | 입력(대화 기록 등)을 줄여서 다시 요청 |
 
 ```java
 String stopReason = message.stopReason().map(StopReason::asString).orElse("");
@@ -395,9 +396,9 @@ client.messages().create(params).content().stream()
 > 참고: 필드 설명이 필요하면 `@JsonPropertyDescription("모델 이름")`처럼 Jackson 어노테이션을 붙이면 스키마에 같이 들어감
 
 ### 주의할 점
-- 모든 `object`에 `additionalProperties: false`가 필요함 (`.outputConfig(클래스)`를 쓰면 SDK가 자동으로 넣어줌)
+- 모든 `object`에 `additionalProperties: false`가 필요함 (스키마를 직접 작성할 때는 빠뜨리지 않도록 주의)
 - 재귀 스키마, 숫자 범위(`minimum`, `maximum`), 문자열 길이(`minLength`, `maxLength`) 같은 제약은 지원하지 않음
-- 새 스키마로 처음 요청할 때는 스키마 컴파일 때문에 조금 느림. 같은 스키마는 24시간 동안 캐시됨
+- 새 스키마로 처음 요청할 때는 스키마 컴파일 때문에 조금 느림. 같은 스키마는 마지막으로 사용한 시점부터 24시간 동안 캐시됨 (쓸 때마다 24시간이 다시 시작됨)
 - `stop_reason`이 `max_tokens`이거나 `refusal`이면 스키마를 따르지 않는 응답이 올 수 있으므로 **파싱 전에 `stop_reason`을 먼저 확인**해야 함 (에러 처리 참고)
 
 ## 프롬프트 캐싱
@@ -427,7 +428,7 @@ MessageCreateParams params = MessageCreateParams.builder()
 | 구분 | 가격 (기본 입력 대비) |
 | ----- | ----- |
 | 캐시 쓰기 | 1.25배 (TTL 1시간은 2배) |
-| 캐시 읽기 | 약 0.1배 (`claude-opus-5-5`는 0.05배) |
+| 캐시 읽기 | 약 0.1배 (모델마다 다름, 예: `claude-opus-5-5`·`claude-sonnet-5-5`는 0.05배, `claude-fable-5-2`·`claude-mythos-5-2`·`claude-fable-5-1`·`claude-mythos-5-1`은 0.025배) |
 
 적중 여부는 응답의 `message.usage().cacheReadInputTokens()`로 확인. 같은 요청을 두 번 보냈을 때 0보다 크면 적중한 것
 
@@ -483,7 +484,7 @@ System.out.println(uploaded.id()); // file_011C...
 
 // 2. file_id로 첨부
 DocumentBlockParam doc = DocumentBlockParam.builder()
-    .source(FileDocumentSource.builder().fileId(uploaded.id()).build())
+    .fileSource(uploaded.id())
     .build();
 
 MessageCreateParams params = MessageCreateParams.builder()
@@ -510,8 +511,8 @@ MessageCreateParams params = MessageCreateParams.builder()
 
 | 항목 | 제한 |
 | ----- | ----- |
-| 요청 하나 전체 크기 | 32MB (base64로 넣으면 원본보다 약 1.33배 커짐) |
-| PDF 페이지 수 | 요청당 600페이지 (컨텍스트 200K 모델은 100페이지) |
+| 요청 하나 전체 크기 | 128MB (1st-party Claude API 기준, 플랫폼마다 다름. base64로 넣으면 원본보다 약 1.33배 커짐) |
+| PDF 페이지 수 | 요청당 600페이지 (컨텍스트 1M 미만이면 100페이지) |
 | Files API 업로드 | 파일 하나 500MB |
 
 - Files API로 올려도 **메시지에 첨부할 때는 요청 크기·페이지 제한이 그대로 적용**됨
@@ -535,5 +536,5 @@ client.files().delete(fileId);             // 삭제
 ### 주의할 점
 - 파일 하나 최대 500MB, 조직당 1TB까지 저장 가능
 - 업로드, 조회, 삭제는 무료. 메시지에 첨부하면 그 내용만큼 **입력 토큰으로 과금**됨
-- 파일은 직접 삭제하기 전까지 계속 남아 있음
+- 파일은 직접 삭제하거나 만료 시각(`expires_at`)이 지날 때까지 남아 있음. 업로드할 때 `expires_in_seconds`로 만료 시간을 지정할 수 있음
 - 예전 문서의 `client.beta().files()` + `files-api-2025-04-14` 헤더는 이제 필요 없음. `client.files()`를 사용
