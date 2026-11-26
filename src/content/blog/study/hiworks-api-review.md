@@ -181,6 +181,83 @@ public class HiworksOrganizationService {
 }
 ```
 
+- **응답값 예시**
+  응답값 예시는 아래와 같습니다.
+
+  ````json
+  {
+    "node_id": "12312",
+    "name": "하이웍스",
+    "entries": [
+      {
+        "is_admin": "Y",
+        "is_construction_admin": "N",
+        "mail_id": "admin",
+        "name": "홍길동",
+        "email": "",
+        "phone": "",
+        "cell": "",
+        "node_id": "12312",
+        "user_no": "1232345"
+      },
+      {
+        "is_admin": "N",
+        "is_construction_admin": "N",
+        "mail_id": "kcs",
+        "name": "김철수",
+        "email": "",
+        "phone": "",
+        "cell": "",
+        "node_id": "12312",
+        "user_no": "2343456"
+      },
+      {
+        "is_admin": "N",
+        "is_construction_admin": "N",
+        "mail_id": "kyh",
+        "name": "김영희",
+        "email": "",
+        "phone": "",
+        "cell": "",
+        "node_id": "12312",
+        "user_no": "3454567"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "23434",
+        "name": "하이웍스 마케팅",
+        "parent_no": "12312",
+        "entries": [
+          {
+            "is_admin": "N",
+            "is_construction_admin": "N",
+            "mail_id": "kkd",
+            "name": "김길동",
+            "email": "",
+            "phone": "",
+            "cell": "",
+            "node_id": "23434",
+            "user_no": "4565678"
+          },
+          {
+            "is_admin": "N",
+            "is_construction_admin": "N",
+            "mail_id": "khs",
+            "name": "김희선",
+            "email": "",
+            "phone": "",
+            "cell": "",
+            "node_id": "23434",
+            "user_no": "5676789"
+          }
+        ]
+      }
+    ]
+  }
+  ```1
+  ````
+
 > LinkAuth Token을 사용하는 API에서도 호출 방식은 거의 동일합니다.
 
 ---
