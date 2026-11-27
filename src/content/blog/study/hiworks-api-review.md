@@ -184,7 +184,7 @@ public class HiworksOrganizationService {
 - **응답값 예시**
   응답값 예시는 아래와 같습니다.
 
-  ````json
+  ```json
   {
     "node_id": "12312",
     "name": "하이웍스",
@@ -255,8 +255,7 @@ public class HiworksOrganizationService {
       }
     ]
   }
-  ```1
-  ````
+  ```
 
 > LinkAuth Token을 사용하는 API에서도 호출 방식은 거의 동일합니다.
 
